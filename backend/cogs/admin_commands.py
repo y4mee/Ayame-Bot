@@ -10,16 +10,6 @@ class AdminCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        """Check if user has administrator permissions."""
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message(
-                "❌ You need Administrator permissions to use this command.",
-                ephemeral=True
-            )
-            return False
-        return True
-
     @app_commands.command(name="ban", description="Ban a member from the server.")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(
@@ -360,6 +350,86 @@ class AdminCommands(commands.Cog):
         embed.add_field(name="Boost Level", value=guild.premium_tier, inline=True)
         embed.set_footer(text=f"Server ID: {guild.id}")
         
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @app_commands.command(name="help", description="Show all available commands.")
+    async def help_command(self, interaction: discord.Interaction):
+        """Clean, minimal help command."""
+        is_admin = interaction.user.guild_permissions.administrator
+        
+        # Check if XP system is configured
+        from database import db
+        config = db.get_guild_config(interaction.guild.id)
+        xp_enabled = config.get("enabled", False)
+        log_channel_id = config.get("log_channel")
+        
+        embed = discord.Embed(
+            title="Commands",
+            description="Brief usage and permissions",
+            color=0x5865F2
+        )
+        
+        # Activity XP Commands - Everyone
+        if xp_enabled:
+            log_channel = interaction.guild.get_channel(log_channel_id) if log_channel_id else None
+            xp_desc = (
+                "`/xp [user]` - Check XP & level\n"
+                "`/rank [user]` - View detailed stats\n"
+                "`/leaderboard [page]` - Top users\n"
+                "`/top` - Quick top 10"
+            )
+            if log_channel:
+                xp_desc += f"\n*Use in {log_channel.mention}*"
+            embed.add_field(name="Activity XP • Everyone", value=xp_desc, inline=False)
+        
+        # NSFW Commands - Everyone (NSFW channels only)
+        nsfw_desc = (
+            "`/nsfwimg <category>` - Single image\n"
+            "`/nsfwgif <category>` - Single GIF\n"
+            "`/nsfwvdo <category>` - Single video\n"
+            "`/autonsfwimg <category>` - Auto images\n"
+            "`/autonsfwgif <category>` - Auto GIFs\n"
+            "`/autonsfwvdo <category>` - Auto videos\n"
+            "`/list` - Show all categories\n"
+            "*NSFW channels only*"
+        )
+        embed.add_field(name="NSFW • Everyone", value=nsfw_desc, inline=False)
+        
+        # Admin Commands
+        if is_admin:
+            if not xp_enabled:
+                embed.add_field(
+                    name="⚠️ Setup Required",
+                    value="`/setxpsystem @role #channel` to enable XP",
+                    inline=False
+                )
+            
+            xp_admin_desc = (
+                "`/setxpsystem #channel <create_roles>` - Setup XP\n"
+                "`/setrewardrole <level> @role` - Add reward & sync\n"
+                "`/editrewardrole <level> @newrole` - Change reward\n"
+                "`/backupxp` - Export XP data"
+            )
+            embed.add_field(name="XP Admin • Admins Only", value=xp_admin_desc, inline=False)
+            
+            mod_desc = (
+                "`/ban <user> [reason]` - Ban member\n"
+                "`/kick <user> [reason]` - Kick member\n"
+                "`/timeout <user> <mins>` - Timeout member\n"
+                "`/purge <amount>` - Delete messages\n"
+                "`/warn <user> <reason>` - Warn member\n"
+                "`/role <user> @role <add/remove>` - Manage roles"
+            )
+            embed.add_field(name="Moderation • Admins Only", value=mod_desc, inline=False)
+            
+            security_desc = (
+                "`/antispam <on/off>` - Toggle spam protection\n"
+                "`/antiraid <on/off>` - Toggle raid protection\n"
+                "`/securitylog #channel` - Set security logs"
+            )
+            embed.add_field(name="Security • Admins Only", value=security_desc, inline=False)
+        
+        embed.set_footer(text="Use /help to see this list anytime")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 async def setup(bot):

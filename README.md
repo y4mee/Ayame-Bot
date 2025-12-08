@@ -1,90 +1,185 @@
-# Ayame Bot 🤖
+# Ayame Bot - Discord Bot with Activity XP & Moderation
 
-A feature-rich Discord bot with NSFW content, moderation, and security features.
+A feature-rich Discord bot with automatic activity tracking, XP system, moderation tools, and NSFW content commands.
 
-## ✨ Features
+## 📁 Project Structure
 
-### 🔞 NSFW Commands (7 commands)
-- `/post_image` - Post NSFW images
-- `/post_gif` - Post NSFW gifs
-- `/post_clip` - Post NSFW videos
-- `/autopost_image` - Interactive image posting
-- `/autopost_gif` - Interactive gif posting
-- `/autopost_clip` - Interactive video posting
-- `/list` - List all categories
+```
+Ayame-Bot/
+├── backend/          # Discord bot (Python)
+│   ├── cogs/        # Command modules
+│   ├── main.py      # Bot entry point
+│   └── README.md    # Backend documentation
+├── frontend/         # Keep-alive dashboard (Next.js)
+│   └── README.md    # Frontend documentation
+├── .env             # Environment variables
+├── DEPLOYMENT.md    # Deployment guide
+└── README.md        # This file
+```
 
-### 🛡️ Admin Commands (14 commands)
-- `/ban`, `/unban`, `/kick` - Member moderation
-- `/timeout`, `/untimeout` - Timeout management
-- `/purge`, `/clear` - Message management
-- `/lock`, `/unlock` - Channel control
-- `/slowmode` - Rate limiting
-- `/nick`, `/role` - Member management
-- `/warn` - Warning system
-- `/serverinfo` - Server statistics
+## 🚀 Features
 
-### 🔒 Security Commands (10 commands)
-- `/security` - Enable/disable features
-- `/setlog` - Configure logging
-- `/setverify` - Setup verification
-- `/verify_panel` - Send verification button
-- `/antiraid` - Configure raid protection
-- `/badwords` - Manage word filter
-- `/lockdown`, `/unlock_server` - Emergency lockdown
-- `/backup` - Server backup
-- `/security_status` - View settings
+### Activity XP System
+- **Automatic tracking** of Spotify, games, streaming, and more
+- **Random XP rewards** (3-20 XP per hour based on activity)
+- **Streak bonuses** (2x multiplier per hour)
+- **3 role themes** (Anime 🌸, Gaming 🎮, Ranks 🏆)
+- **Leaderboards** and rank cards with reward roles
 
-### 🎨 Additional Features
-- Seasonal status messages with kaomoji
-- DND status (red circle)
-- Auto-spam detection
+### Moderation Tools
+- Ban, kick, timeout, warn members
+- Purge messages, slowmode, lock channels
+- Role and nickname management
+
+### Security Features
+- Anti-spam protection
 - Anti-raid protection
-- Anti-alt detection
-- Bad words filter
-- Verification system
-- Audit logging
+- Security logging
 
-## 🚀 Quick Start
+### NSFW Commands
+- Image, GIF, and video posting
+- Auto-post with interactive ⟳ and 🗑️ buttons
+- Multiple categories
 
-1. Clone the repository
-2. Install dependencies: `pip install -r requirements.txt`
-3. Create `.env` file with your bot token
-4. Run: `python main.py`
+## 📦 Quick Start (Local Development)
 
-## 📦 Requirements
+### Backend (Discord Bot)
 
-- Python 3.11+
-- Discord bot token
-- NSFW channels for content commands
+1. **Install dependencies:**
+```bash
+cd backend
+pip install -r requirements.txt
+```
 
-## 🌐 Deploy to Render
+2. **Setup environment:**
+```bash
+# Create .env in root directory
+BOT_TOKEN=your_discord_bot_token_here
+```
 
-See [DEPLOY_INSTRUCTIONS.md](DEPLOY_INSTRUCTIONS.md) for detailed deployment guide.
+3. **Enable Presence Intent:**
+- Go to [Discord Developer Portal](https://discord.com/developers/applications)
+- Select your bot → Bot → Privileged Gateway Intents
+- Enable **Presence Intent** and **Server Members Intent**
 
-## 📝 Configuration
+4. **Run the bot:**
+```bash
+python backend/main.py
+```
 
-All settings are per-server and saved automatically:
-- Security features can be toggled with `/security`
-- Logging channel set with `/setlog`
-- Verification configured with `/setverify`
+Or use the batch file:
+```powershell
+.\start.bat
+```
 
-## 🔐 Security
+### Frontend (Keep-Alive Dashboard)
 
-- All admin commands require Administrator permission
-- NSFW commands only work in NSFW channels
-- Environment variables for sensitive data
-- Automatic spam and raid detection
+See `frontend/README.md` for setup instructions.
 
-## 📊 Total Commands: 31
+## 🌐 Deployment (Production)
 
-- 7 NSFW commands
-- 14 Admin commands
-- 10 Security commands
+Deploy backend on **Render** and frontend on **Vercel** from a single repository.
 
-## 🆘 Support
+**See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.**
 
-For issues or questions, check the logs or documentation.
+### Quick Deploy:
+
+1. **Push to GitHub**
+2. **Deploy Backend on Render** (free tier)
+   - Use `backend/render.yaml`
+   - Add `BOT_TOKEN` environment variable
+3. **Deploy Frontend on Vercel** (free tier)
+   - Root directory: `frontend`
+   - Auto-pings backend every 14 minutes to keep it awake
+
+**Total Cost: $0/month** ✅
+
+## 🎯 Quick Start Commands
+
+### Setup Activity XP:
+```
+/setxpsystem #activity-log create_roles:True theme:anime
+```
+
+### Add custom reward role:
+```
+/setrewardrole 10 @Member
+```
+
+### Check your rank:
+```
+/rank
+```
+
+## 📋 Commands Summary
+
+**Total Commands:** 32
+
+### Everyone (12 commands)
+- **Activity XP**: `/xp`, `/rank`, `/leaderboard`, `/top`
+- **NSFW**: `/nsfwimg`, `/nsfwgif`, `/nsfwvdo`, `/autonsfwimg`, `/autonsfwgif`, `/autonsfwvdo`, `/list`
+- **Info**: `/help`
+
+### Admins Only (20 commands)
+- **XP Admin**: `/setxpsystem`, `/setrewardrole`, `/editrewardrole`, `/backupxp`
+- **Moderation**: `/ban`, `/unban`, `/kick`, `/timeout`, `/untimeout`, `/purge`, `/clear`, `/slowmode`, `/lock`, `/unlock`, `/nick`, `/role`, `/warn`
+- **Security**: `/antispam`, `/antiraid`, `/securitylog`
+- **Info**: `/serverinfo`
+
+See `backend/README.md` for detailed command documentation.
+
+## 🎨 Role Themes
+
+Choose from 3 themes when setting up:
+
+- **🌸 Anime**: Sakura Seed → Orb Ascendant
+- **🎮 Gaming**: Noob → Mythic
+- **🏆 Ranks**: Bronze I → Master
+
+## 🔧 Configuration
+
+### Required Permissions:
+- Read Messages
+- Send Messages
+- Embed Links
+- Manage Roles
+- Kick Members
+- Ban Members
+- Moderate Members
+- Manage Messages
+- Manage Channels
+
+### Required Intents:
+- Presence Intent (for activity tracking)
+- Server Members Intent (for anti-raid)
+- Message Content Intent
+
+## 📊 Database
+
+Uses SQLite for data storage:
+- `backend/bot_database.db` - Main database file
+- Stores XP, levels, streaks, roles, and configuration
+- Automatic backup with `/backupxp`
+
+## 📝 Environment Variables
+
+```env
+BOT_TOKEN=your_discord_bot_token_here
+PORT=8080  # Optional, for web server health checks
+```
+
+## 🤝 Support
+
+For issues or questions:
+1. Check bot has required permissions
+2. Verify Presence Intent is enabled
+3. Check logs for errors
+4. See [DEPLOYMENT.md](DEPLOYMENT.md) for deployment help
 
 ## 📄 License
 
-This project is for educational purposes.
+MIT License - Feel free to use and modify!
+
+## 🎉 Credits
+
+Built with discord.py and love ❤️

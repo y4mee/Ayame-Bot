@@ -1,0 +1,25 @@
+name: Keep Bot Alive
+
+on:
+  schedule:
+    # Runs every 14 minutes
+    - cron: '*/14 * * * *'
+  workflow_dispatch: # Allows manual trigger
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Ping Bot
+        run: |
+          echo "🤖 Pinging Ayame Bot..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://ayame-bot.onrender.com/health)
+          
+          if [ $response -eq 200 ]; then
+            echo "✅ Bot is awake! (Status: $response)"
+          else
+            echo "⚠️ Bot responded with status: $response"
+          fi
+          
+          echo "⏰ Ping completed at $(date)"
