@@ -151,6 +151,16 @@ The frontend will automatically ping your backend every 14 minutes to keep it aw
 
 ## 🛠️ Troubleshooting
 
+### ⚠️ Error 429: Rate Limited
+**Most common issue!**
+
+If you see "429 Too Many Requests" or "Error 1015" in Render logs:
+- **Solution:** Wait 15-30 minutes. Discord temporarily blocked Render's IP.
+- **Cause:** Too many deploy attempts in short time
+- **Prevention:** Don't keep clicking "Manual Deploy"
+
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for detailed solutions.
+
 ### Bot goes to sleep
 - Check Vercel logs: Is the ping working?
 - Check Render logs: Is the health endpoint responding?
@@ -164,6 +174,8 @@ The frontend will automatically ping your backend every 14 minutes to keep it aw
 ### Frontend not loading
 - Check Vercel deployment logs
 - Verify `frontend` directory structure is correct
+
+**For more issues, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md)**
 
 ---
 

@@ -246,10 +246,33 @@ async def main():
             except Exception as e:
                 logger.error(f"❌ Failed to load {ext}: {e}")
         
-        await bot.start(BOT_TOKEN)
+        # Start bot with retry logic for rate limits
+        max_retries = 3
+        retry_delay = 60  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                await bot.start(BOT_TOKEN)
+                break  # Success, exit retry loop
+            except discord.errors.HTTPException as e:
+                if e.status == 429:  # Rate limited
+                    if attempt < max_retries - 1:
+                        logger.warning(f"⚠️ Rate limited by Discord. Waiting {retry_delay} seconds before retry {attempt + 2}/{max_retries}...")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                    else:
+                        logger.error("❌ Rate limit exceeded. Please wait 15-30 minutes and try again.")
+                        raise
+                else:
+                    raise
+            except Exception as e:
+                logger.error(f"❌ Failed to start bot: {e}")
+                raise
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("👋 Bot shutting down gracefully...")
+    except Exception as e:
+        logger.error(f"❌ Bot crashed: {e}")
