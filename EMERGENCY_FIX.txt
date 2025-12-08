@@ -1,0 +1,23 @@
+EMERGENCY FIX - Run these commands in PowerShell:
+
+# Step 1: Reset to the commit BEFORE the exposed token
+git reset --hard 6e5ed56
+
+# Step 2: Re-add all your current files
+git add .
+
+# Step 3: Commit everything fresh (without the exposed token)
+git commit -m "Complete bot rewrite with security features"
+
+# Step 4: Force push to overwrite history
+git push origin main --force
+
+# Step 5: Verify .env is not tracked
+git status
+
+If .env appears in git status, run:
+git rm --cached .env
+git commit -m "Stop tracking .env"
+git push --force
+
+IMPORTANT: Make sure you've regenerated your Discord bot token first!
