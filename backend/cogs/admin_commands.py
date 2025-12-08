@@ -376,7 +376,8 @@ class AdminCommands(commands.Cog):
                 "`/xp [user]` - Check XP & level\n"
                 "`/rank [user]` - View detailed stats\n"
                 "`/leaderboard [page]` - Top users\n"
-                "`/top` - Quick top 10"
+                "`/top` - Quick top 10\n"
+                "`/rewardslist` - View all reward roles"
             )
             if log_channel:
                 xp_desc += f"\n*Use in {log_channel.mention}*"
@@ -406,9 +407,9 @@ class AdminCommands(commands.Cog):
             
             xp_admin_desc = (
                 "`/setxpsystem #channel <create_roles>` - Setup XP\n"
-                "`/setrewardrole <level> @role` - Add reward & sync\n"
-                "`/editrewardrole <level> @newrole` - Change reward\n"
-                "`/backupxp` - Export XP data"
+                "`/setrewardrole <level> @role` - Set/update reward\n"
+                "`/backupxp` - Export XP data\n"
+                "`/resetxpsystem` - Reset all XP data"
             )
             embed.add_field(name="XP Admin • Admins Only", value=xp_admin_desc, inline=False)
             

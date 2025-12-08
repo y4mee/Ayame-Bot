@@ -218,14 +218,14 @@ class ActivityXP(commands.Cog):
         await interaction.followup.send(embed=embed, ephemeral=True)
         logger.info(f"{interaction.user} setup XP system: roles={create_roles}, theme={theme}")
     
-    @app_commands.command(name="setrewardrole", description="Set reward role for a level and sync to all users.")
+    @app_commands.command(name="setrewardrole", description="Set or update reward role for a level.")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(
         level="Level required for this role",
         role="Role to assign"
     )
     async def setrewardrole(self, interaction: discord.Interaction, level: int, role: discord.Role):
-        """Set a reward role and immediately sync it to all qualifying users."""
+        """Set or update a reward role - automatically removes old role if updating."""
         await interaction.response.defer(ephemeral=True)
         
         if level < 1:
@@ -237,109 +237,73 @@ class ActivityXP(commands.Cog):
             await interaction.followup.send("❌ I cannot manage this role (it's higher than my highest role)!", ephemeral=True)
             return
         
-        # Add role to reward system
-        db.add_custom_role(interaction.guild.id, level, role.id)
-        
-        # Auto-sync: Give role to all users at this level or higher
         guild_id = interaction.guild.id
+        custom_roles = db.get_custom_roles(guild_id)
+        
+        # Check if this level already has a reward role
+        old_role = None
+        is_update = str(level) in custom_roles
+        if is_update:
+            old_role_id = custom_roles[str(level)]
+            old_role = interaction.guild.get_role(old_role_id)
+        
+        # Update role in database
+        db.add_custom_role(guild_id, level, role.id)
+        
+        # Sync: Update all qualifying users
         leaderboard_data = db.get_leaderboard(guild_id, limit=10000)
         
-        synced = 0
+        added = 0
+        removed = 0
         skipped = 0
         
         for user_id, xp, user_level in leaderboard_data:
             if user_level < level:
                 continue
-                
-            member = interaction.guild.get_member(user_id)
-            if not member:
-                continue
-            
-            if role in member.roles:
-                skipped += 1
-                continue
-            
-            try:
-                await member.add_roles(role, reason=f"Reward role for Level {level}")
-                synced += 1
-            except Exception as e:
-                logger.error(f"Failed to assign role to {member.name}: {e}")
-        
-        embed = discord.Embed(
-            title="✅ Reward Role Set",
-            description=f"Level **{level}** → {role.mention}",
-            color=discord.Color.green()
-        )
-        embed.add_field(name="Synced", value=f"{synced} users got the role", inline=True)
-        if skipped > 0:
-            embed.add_field(name="Skipped", value=f"{skipped} already had it", inline=True)
-        
-        await interaction.followup.send(embed=embed, ephemeral=True)
-        logger.info(f"{interaction.user} set reward role: Level {level} → {role.name}, synced to {synced} users")
-    
-    @app_commands.command(name="editrewardrole", description="Change reward role for a level.")
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.describe(
-        level="Level to edit",
-        newrole="New role to assign"
-    )
-    async def editrewardrole(self, interaction: discord.Interaction, level: int, newrole: discord.Role):
-        """Edit an existing reward role and sync changes."""
-        await interaction.response.defer(ephemeral=True)
-        
-        guild_id = interaction.guild.id
-        custom_roles = db.get_custom_roles(guild_id)
-        
-        # Check if level exists
-        if str(level) not in custom_roles:
-            await interaction.followup.send(f"❌ No reward role set for Level {level}!", ephemeral=True)
-            return
-        
-        # Check if bot can manage new role
-        if newrole >= interaction.guild.me.top_role:
-            await interaction.followup.send("❌ I cannot manage this role (it's higher than my highest role)!", ephemeral=True)
-            return
-        
-        old_role_id = custom_roles[str(level)]
-        old_role = interaction.guild.get_role(old_role_id)
-        
-        # Update role in database
-        db.add_custom_role(guild_id, level, newrole.id)
-        
-        # Sync: Remove old role and add new role to qualifying users
-        leaderboard_data = db.get_leaderboard(guild_id, limit=10000)
-        
-        updated = 0
-        
-        for user_id, xp, user_level in leaderboard_data:
-            if user_level < level:
-                continue
             
             member = interaction.guild.get_member(user_id)
             if not member:
                 continue
             
             try:
-                # Remove old role if they have it
-                if old_role and old_role in member.roles:
-                    await member.remove_roles(old_role, reason=f"Reward role changed for Level {level}")
+                # Remove old role if updating
+                if is_update and old_role and old_role in member.roles:
+                    await member.remove_roles(old_role, reason=f"Reward role updated for Level {level}")
+                    removed += 1
                 
-                # Add new role if they don't have it
-                if newrole not in member.roles:
-                    await member.add_roles(newrole, reason=f"Updated reward role for Level {level}")
-                    updated += 1
+                # Add new role
+                if role not in member.roles:
+                    await member.add_roles(role, reason=f"Reward role for Level {level}")
+                    added += 1
+                else:
+                    skipped += 1
             except Exception as e:
                 logger.error(f"Failed to update role for {member.name}: {e}")
         
-        embed = discord.Embed(
-            title="✅ Reward Role Updated",
-            description=f"Level **{level}**\n{old_role.mention if old_role else 'Old role'} → {newrole.mention}",
-            color=discord.Color.green()
-        )
-        embed.add_field(name="Users Updated", value=str(updated), inline=True)
+        # Create response embed
+        if is_update:
+            embed = discord.Embed(
+                title="✅ Reward Role Updated",
+                description=f"Level **{level}**\n{old_role.mention if old_role else 'Old role'} → {role.mention}",
+                color=discord.Color.green()
+            )
+            embed.add_field(name="Added", value=str(added), inline=True)
+            embed.add_field(name="Removed Old", value=str(removed), inline=True)
+            if skipped > 0:
+                embed.add_field(name="Already Had", value=str(skipped), inline=True)
+            logger.info(f"{interaction.user} updated reward role: Level {level} → {role.name}, added={added}, removed={removed}")
+        else:
+            embed = discord.Embed(
+                title="✅ Reward Role Set",
+                description=f"Level **{level}** → {role.mention}",
+                color=discord.Color.green()
+            )
+            embed.add_field(name="Synced", value=f"{added} users got the role", inline=True)
+            if skipped > 0:
+                embed.add_field(name="Already Had", value=str(skipped), inline=True)
+            logger.info(f"{interaction.user} set reward role: Level {level} → {role.name}, synced to {added} users")
         
         await interaction.followup.send(embed=embed, ephemeral=True)
-        logger.info(f"{interaction.user} edited reward role: Level {level} → {newrole.name}, updated {updated} users")
     
 
     @app_commands.command(name="xp", description="Check your XP and level.")
@@ -397,6 +361,93 @@ class ActivityXP(commands.Cog):
             role = interaction.guild.get_role(current_role_info["role_id"])
             if role:
                 embed.add_field(name="Role", value=role.mention, inline=False)
+        
+        await interaction.response.send_message(embed=embed)
+    
+    @app_commands.command(name="rewardslist", description="View all reward roles and their level requirements.")
+    async def rewardslist(self, interaction: discord.Interaction):
+        """Show all reward roles configured for this server."""
+        # Check if XP system is configured
+        config = self.get_guild_config(interaction.guild.id)
+        if not config.get("enabled"):
+            await interaction.response.send_message(
+                "❌ Activity XP system is not configured in this server.\n"
+                "Ask an admin to run `/setxpsystem` to set it up!",
+                ephemeral=True
+            )
+            return
+        
+        guild_id = interaction.guild.id
+        custom_roles = db.get_custom_roles(guild_id)
+        
+        if not custom_roles:
+            embed = discord.Embed(
+                title="Reward Roles",
+                description="No reward roles configured yet.\n\nAdmins can add roles using `/setrewardrole`",
+                color=0x5865F2
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        # Sort roles by level
+        sorted_roles = sorted(custom_roles.items(), key=lambda x: int(x[0]))
+        
+        # Create embed
+        embed = discord.Embed(
+            title="🎁 Reward Roles",
+            description="Reach these levels to unlock reward roles!",
+            color=0xFEE75C
+        )
+        
+        # Add roles to embed
+        roles_text = ""
+        for level_str, role_id in sorted_roles:
+            level = int(level_str)
+            role = interaction.guild.get_role(role_id)
+            
+            if role:
+                # Calculate XP needed
+                xp_needed = level * 100
+                roles_text += f"**Level {level}** • {xp_needed:,} XP → {role.mention}\n"
+            else:
+                roles_text += f"**Level {level}** • {level * 100:,} XP → *Role deleted*\n"
+        
+        embed.description = roles_text
+        
+        # Add user's progress
+        user_data = self.get_user_xp(guild_id, interaction.user.id)
+        current_level = user_data["level"]
+        current_xp = user_data["xp"]
+        
+        # Find next reward
+        next_reward = None
+        for level_str, role_id in sorted_roles:
+            level = int(level_str)
+            if level > current_level:
+                next_reward = (level, role_id)
+                break
+        
+        if next_reward:
+            next_level, next_role_id = next_reward
+            next_role = interaction.guild.get_role(next_role_id)
+            xp_needed = (next_level * 100) - current_xp
+            
+            if next_role:
+                embed.add_field(
+                    name="Your Progress",
+                    value=f"Level **{current_level}** • {current_xp:,} XP\n"
+                          f"Next: {next_role.mention} in **{xp_needed:,} XP**",
+                    inline=False
+                )
+        else:
+            embed.add_field(
+                name="Your Progress",
+                value=f"Level **{current_level}** • {current_xp:,} XP\n"
+                      f"🎉 You've unlocked all rewards!",
+                inline=False
+            )
+        
+        embed.set_footer(text=f"Total Rewards: {len(sorted_roles)}")
         
         await interaction.response.send_message(embed=embed)
     
@@ -1031,6 +1082,115 @@ class ActivityXP(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"❌ Backup failed: {str(e)}", ephemeral=True)
     
+    @app_commands.command(name="resetxpsystem", description="Reset XP system - deletes ALL data!")
+    @app_commands.default_permissions(administrator=True)
+    async def resetxpsystem(self, interaction: discord.Interaction):
+        """Reset entire XP system for this server - WARNING: Deletes all data!"""
+        
+        # Create confirmation view
+        class ConfirmReset(discord.ui.View):
+            def __init__(self):
+                super().__init__(timeout=30)
+                self.value = None
+            
+            @discord.ui.button(label="✅ Yes, Reset Everything", style=discord.ButtonStyle.danger)
+            async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+                self.value = True
+                self.stop()
+                await interaction.response.defer()
+            
+            @discord.ui.button(label="❌ Cancel", style=discord.ButtonStyle.secondary)
+            async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+                self.value = False
+                self.stop()
+                await interaction.response.defer()
+        
+        # Send confirmation
+        embed = discord.Embed(
+            title="⚠️ Reset XP System",
+            description="**This will delete ALL XP data for this server:**\n\n"
+                       "• All user XP and levels\n"
+                       "• All reward roles configuration\n"
+                       "• All streaks\n"
+                       "• XP system configuration\n\n"
+                       "**This action cannot be undone!**\n"
+                       "Consider using `/backupxp` first.",
+            color=discord.Color.red()
+        )
+        
+        view = ConfirmReset()
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        
+        # Wait for confirmation
+        await view.wait()
+        
+        if view.value is None:
+            await interaction.followup.send("❌ Reset cancelled (timeout)", ephemeral=True)
+            return
+        
+        if not view.value:
+            await interaction.followup.send("❌ Reset cancelled", ephemeral=True)
+            return
+        
+        # User confirmed, proceed with reset
+        try:
+            guild_id = interaction.guild.id
+            
+            # Get all users with XP
+            leaderboard_data = db.get_leaderboard(guild_id, limit=10000)
+            user_count = len(leaderboard_data)
+            
+            # Get reward roles
+            custom_roles = db.get_custom_roles(guild_id)
+            role_count = len(custom_roles)
+            
+            # Delete all user XP data
+            for user_id, _, _ in leaderboard_data:
+                db.conn.execute(
+                    "DELETE FROM user_xp WHERE guild_id = ? AND user_id = ?",
+                    (guild_id, user_id)
+                )
+            
+            # Delete all streaks
+            db.conn.execute("DELETE FROM streaks WHERE guild_id = ?", (guild_id,))
+            
+            # Delete all custom roles
+            db.conn.execute("DELETE FROM custom_roles WHERE guild_id = ?", (guild_id,))
+            
+            # Disable XP system
+            db.conn.execute(
+                "UPDATE guild_config SET enabled = 0, log_channel = NULL, target_role = NULL, auto_roles = 0 WHERE guild_id = ?",
+                (guild_id,)
+            )
+            
+            db.conn.commit()
+            
+            # Clear in-memory caches
+            if hasattr(self, 'last_activity'):
+                keys_to_remove = [k for k in self.last_activity.keys() if k.startswith(f"{guild_id}_")]
+                for key in keys_to_remove:
+                    del self.last_activity[key]
+            
+            # Success message
+            embed = discord.Embed(
+                title="✅ XP System Reset Complete",
+                description=f"All XP data has been deleted for this server.",
+                color=discord.Color.green()
+            )
+            embed.add_field(name="Users Cleared", value=str(user_count), inline=True)
+            embed.add_field(name="Roles Removed", value=str(role_count), inline=True)
+            embed.add_field(
+                name="Next Steps",
+                value="Run `/setxpsystem` to set up the XP system again.",
+                inline=False
+            )
+            
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            logger.info(f"{interaction.user} reset XP system in {interaction.guild.name}: {user_count} users, {role_count} roles")
+            
+        except Exception as e:
+            await interaction.followup.send(f"❌ Reset failed: {str(e)}", ephemeral=True)
+            logger.error(f"Failed to reset XP system: {e}")
 
 
 async def setup(bot):
