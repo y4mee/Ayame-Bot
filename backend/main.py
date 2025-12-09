@@ -7,6 +7,7 @@ from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from datetime import datetime
 from aiohttp import web
+from recovery import restore_guild_configs, verify_bot_health
 
 # Configure logging
 logging.basicConfig(
@@ -65,6 +66,13 @@ async def on_ready():
     logger.info(f"🤖 Logged in as {bot.user} (ID: {bot.user.id})")
     logger.info(f"📊 Bot is in {len(bot.guilds)} guild(s)")
     
+    # Restore guild configurations on startup
+    logger.info("🔄 Restoring guild configurations...")
+    await restore_guild_configs(bot)
+    
+    # Verify bot health
+    await verify_bot_health(bot)
+    
     # Set initial DND status
     all_statuses = base_statuses + get_seasonal_statuses()
     status = random.choice(all_statuses)
@@ -83,6 +91,7 @@ async def on_ready():
         logger.error("   Make sure bot has 'applications.commands' scope!")
     
     rotate_status.start()
+    health_check_task.start()
 
 @bot.event
 async def on_guild_join(guild):
@@ -192,6 +201,23 @@ async def on_guild_join(guild):
 @bot.event
 async def on_command_error(ctx, error):
     logger.error(f"Command error: {error}")
+    try:
+        await ctx.send(f"❌ An error occurred: {str(error)[:100]}")
+    except:
+        pass
+
+@bot.event
+async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+    """Handle slash command errors gracefully."""
+    logger.error(f"Slash command error in {interaction.command.name}: {error}")
+    try:
+        if not interaction.response.is_done():
+            await interaction.response.send_message(
+                f"❌ An error occurred: {str(error)[:100]}",
+                ephemeral=True
+            )
+    except Exception as e:
+        logger.error(f"Failed to send error message: {e}")
 
 @tasks.loop(seconds=60)
 async def rotate_status():
@@ -200,6 +226,14 @@ async def rotate_status():
     activity = discord.Activity(type=discord.ActivityType.watching, name=status)
     await bot.change_presence(status=discord.Status.dnd, activity=activity)
     logger.info(f"🔴 Status rotated to: {status}")
+
+@tasks.loop(minutes=30)
+async def health_check_task():
+    """Periodic health check to ensure bot is functioning."""
+    try:
+        await verify_bot_health(bot)
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
 
 INITIAL_EXTENSIONS = [
     "cogs.post_commands",
