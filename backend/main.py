@@ -77,8 +77,8 @@ async def on_ready():
     all_statuses = base_statuses + get_seasonal_statuses()
     status = random.choice(all_statuses)
     activity = discord.Activity(type=discord.ActivityType.watching, name=status)
-    await bot.change_presence(status=discord.Status.dnd, activity=activity)
-    logger.info(f"🔴 Status set to DND with activity: {status}")
+    await bot.change_presence(status=discord.Status.idle, activity=activity)
+    logger.info(f" Status set to idle with activity: {status}")
     
     # Sync slash commands with Discord
     try:
